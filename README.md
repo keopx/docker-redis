@@ -1,6 +1,6 @@
 # Introduction #
 
-This image works with **Debian 8** and use current **Redis 3.2/3.0** version.
+This image works with **Debian 9** and use current **Redis 3.2/3.0** version.
 
 ## Example usage: ##
 
