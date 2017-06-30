@@ -1,6 +1,15 @@
-FROM debian:jessie-slim
+FROM debian:stretch-slim
 
 MAINTAINER keopx <keopx@keopx.net>
+
+# Set repositories
+RUN \
+  echo "deb http://ftp.de.debian.org/debian/ stretch main non-free contrib\n" > /etc/apt/sources.list && \
+  echo "deb-src http://ftp.de.debian.org/debian/ stretch main non-free contrib\n" >> /etc/apt/sources.list && \
+  echo "deb http://security.debian.org/ stretch/updates main contrib non-free\n" >> /etc/apt/sources.list && \
+  echo "deb-src http://security.debian.org/ stretch/updates main contrib non-free" >> /etc/apt/sources.list && \
+  # Update repositories cache and distribution
+  apt-get -qq update && apt-get -qqy upgrade
 
 # add our user and group first to make sure their IDs get assigned consistently, regardless of whatever dependencies get added
 RUN groupadd -r redis && useradd -r -g redis redis
@@ -8,23 +17,20 @@ RUN groupadd -r redis && useradd -r -g redis redis
 # grab gosu for easy step-down from root
 # https://github.com/tianon/gosu/releases
 ENV GOSU_VERSION 1.10
+
 RUN set -ex; \
-	\
-	fetchDeps='ca-certificates wget'; \
-	apt-get update; \
+	fetchDeps='ca-certificates wget bzip2 gnupg dirmngr'; \
 	apt-get install -y --no-install-recommends $fetchDeps; \
-	rm -rf /var/lib/apt/lists/*; \
-	\
+	update-ca-certificates; \
 	dpkgArch="$(dpkg --print-architecture | awk -F- '{ print $NF }')"; \
 	wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch"; \
 	wget -O /usr/local/bin/gosu.asc "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch.asc"; \
 	export GNUPGHOME="$(mktemp -d)"; \
-	gpg --keyserver ha.pool.sks-keyservers.net --recv-keys B42F6819007F00F88E364FD4036A9C25BF357DD4; \
+	gpg --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys B42F6819007F00F88E364FD4036A9C25BF357DD4; \
 	gpg --batch --verify /usr/local/bin/gosu.asc /usr/local/bin/gosu; \
-	rm -r "$GNUPGHOME" /usr/local/bin/gosu.asc; \
+	rm -fr "$GNUPGHOME" /usr/local/bin/gosu.asc; \
 	chmod +x /usr/local/bin/gosu; \
 	gosu nobody true; \
-	\
 	apt-get purge -y --auto-remove $fetchDeps
 
 ENV REDIS_VERSION 3.0.7
@@ -57,6 +63,10 @@ RUN set -ex; \
 	rm -r /usr/src/redis; \
 	\
 	apt-get purge -y --auto-remove $buildDeps
+	
+# Cleanup some things.
+RUN apt-get -q autoclean && \
+  rm -rf /var/lib/apt/lists/*
 
 RUN mkdir /data && chown redis:redis /data
 VOLUME /data
