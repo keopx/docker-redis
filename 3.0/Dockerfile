@@ -20,13 +20,19 @@ ENV GOSU_VERSION 1.10
 
 RUN set -ex; \
 	fetchDeps='ca-certificates wget bzip2 gnupg dirmngr'; \
-	apt-get install -y --no-install-recommends $fetchDeps; \
+	apt-get -qq update && apt-get install -y --no-install-recommends $fetchDeps; \
 	update-ca-certificates; \
 	dpkgArch="$(dpkg --print-architecture | awk -F- '{ print $NF }')"; \
 	wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch"; \
 	wget -O /usr/local/bin/gosu.asc "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch.asc"; \
-	export GNUPGHOME="$(mktemp -d)"; \
-	gpg --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys B42F6819007F00F88E364FD4036A9C25BF357DD4; \
+	export GNUPGHOME="$(mktemp -d)" && \
+	for server in $(shuf -e ha.pool.sks-keyservers.net \
+   hkp://p80.pool.sks-keyservers.net:80 \
+   keyserver.ubuntu.com \
+   hkp://keyserver.ubuntu.com:80 \
+   pgp.mit.edu) ; do \
+   gpg --keyserver "$server" --recv-keys B42F6819007F00F88E364FD4036A9C25BF357DD4 && break || : ; \
+	done && \
 	gpg --batch --verify /usr/local/bin/gosu.asc /usr/local/bin/gosu; \
 	rm -fr "$GNUPGHOME" /usr/local/bin/gosu.asc; \
 	chmod +x /usr/local/bin/gosu; \
